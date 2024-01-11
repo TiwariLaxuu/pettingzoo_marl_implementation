@@ -11,7 +11,12 @@ PettingZoo includes the following families of environments:
 ## SISL: 3 cooperative environments, originally from https://github.com/sisl/MADRL
 
 ## Installation 
-To install the base PettingZoo library: pip install pettingzoo. 
+To install the base PettingZoo library: pip install pettingzoo.    # https://pypi.org/project/pettingzoo/
+pip install pymunk
+pip install multi-agent-ale-py   #multi-agent supports certain games with 2 and 4 players
+pip install autorom
+pip install SuperSuit
+pip install stable-baselines3
 
 The first problem we have to deal with is that the environment’s observations are full color images. We don’t need the color information and it’s 3x more computationally expensive for the neural networks to process than grayscale images due to the 3 color channels. 
 
