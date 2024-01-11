@@ -117,7 +117,7 @@ if __name__ == "__main__":
     env_kwargs = dict(
         ball_speed=9, left_paddle_speed=12,
         right_paddle_speed=12, cake_paddle=True, 
-        max_cycles=900, bounce_randomness=False, 
+        max_cycles=90, bounce_randomness=False, 
         max_reward=100, off_screen_penalty=-10)
 
     # Train a model (takes ~3 minutes on a laptop CPU)

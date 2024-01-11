@@ -122,7 +122,7 @@ if __name__ == "__main__":
         killable_archers=True,
         pad_observation=True,
         line_death=False,
-        max_cycles=900,
+        max_cycles=90,
         vector_state=True,
         use_typemasks=False,
         sequence_space=False)

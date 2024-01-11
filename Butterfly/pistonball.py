@@ -121,7 +121,7 @@ if __name__ == "__main__":
         ball_mass=0.75,
         ball_friction=0.3,
         ball_elasticity=1.5,
-        max_cycles=25,
+        max_cycles=5,
     )
 
     # Train a model (takes ~3 minutes on a laptop CPU)

@@ -1,0 +1,6 @@
+pettingzoo
+pymunk
+multi-agent-ale-py
+autorom
+SuperSuit
+stable-baselines3
