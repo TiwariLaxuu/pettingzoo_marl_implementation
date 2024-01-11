@@ -25,6 +25,7 @@ env = ss.concat_vec_envs_v1(env, 8, num_cpus=4, base_class=â€™stable_baselines3â
 ## Piston Environment 
 
 ![Alt text](piston_training.png)
+![Alt text](piston_action_reward.png)
 ![Alt text](piston.gif)
 
 ## Zoombie Environment 
