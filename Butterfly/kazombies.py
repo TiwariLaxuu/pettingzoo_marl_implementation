@@ -1,4 +1,7 @@
-"""Uses Stable-Baselines3 to train agents in the Pistonball environment using SuperSuit vector envs.
+"""Uses Stable-Baselines3 to train agents in the Knights-Archers-Zombies environment using SuperSuit vector envs.
+
+This environment requires using SuperSuit's Black Death wrapper, to handle agent death.
+
 """
 from __future__ import annotations
 
@@ -8,43 +11,40 @@ import time
 
 import supersuit as ss
 from stable_baselines3 import PPO
-from stable_baselines3.ppo import CnnPolicy
+from stable_baselines3.ppo import CnnPolicy, MlpPolicy
 
 from pettingzoo.butterfly import knights_archers_zombies_v10
 
 
-def train_butterfly_supersuit(
-    env_fn, steps: int = 10, seed: int | None = 0, **env_kwargs
-):
-    # Train a single model to play as each agent in a cooperative Parallel environment
+def train(env_fn, steps: int = 10_000, seed: int | None = 0, **env_kwargs):
+    # Train a single model to play as each agent in an AEC environment
     env = env_fn.parallel_env(**env_kwargs)
 
-    # Pre-process using SuperSuit (color reduction, resizing and frame stacking)
-    env = ss.color_reduction_v0(env, mode="B")
-    env = ss.resize_v1(env, x_size=84, y_size=84)
-    env = ss.frame_stack_v1(env, 3)
+    # Add black death wrapper so the number of agents stays constant
+    # MarkovVectorEnv does not support environments with varying numbers of active agents unless black_death is set to True
+    env = ss.black_death_v3(env)
+
+    # Pre-process using SuperSuit
+    visual_observation = not env.unwrapped.vector_state
+    if visual_observation:
+        # If the observation space is visual, reduce the color channels, resize from 512px to 84px, and apply frame stacking
+        env = ss.color_reduction_v0(env, mode="B")
+        env = ss.resize_v1(env, x_size=84, y_size=84)
+        env = ss.frame_stack_v1(env, 3)
 
     env.reset(seed=seed)
 
     print(f"Starting training on {str(env.metadata['name'])}.")
 
     env = ss.pettingzoo_env_to_vec_env_v1(env)
-    env = ss.concat_vec_envs_v1(env, 4, num_cpus=1, base_class="stable_baselines3")
+    env = ss.concat_vec_envs_v1(env, 8, num_cpus=1, base_class="stable_baselines3")
 
+    # Use a CNN policy if the observation space is visual
     model = PPO(
-        CnnPolicy,
+        CnnPolicy if visual_observation else MlpPolicy,
         env,
         verbose=3,
-        gamma=0.95,
-        n_steps=256,
-        ent_coef=0.0905168,
-        learning_rate=0.00062211,
-        vf_coef=0.042202,
-        max_grad_norm=0.9,
-        gae_lambda=0.99,
-        n_epochs=2,
-        clip_range=0.3,
-        batch_size=8,
+        batch_size=256,
     )
 
     model.learn(total_timesteps=steps)
@@ -55,7 +55,6 @@ def train_butterfly_supersuit(
 
     print(f"Finished training on {str(env.unwrapped.metadata['name'])}.")
 
-    # TODO: fix SuperSuit bug where closing the vector env can sometimes crash (disabled for CI)
     env.close()
 
 
@@ -63,10 +62,13 @@ def eval(env_fn, num_games: int = 100, render_mode: str | None = None, **env_kwa
     # Evaluate a trained agent vs a random agent
     env = env_fn.env(render_mode=render_mode, **env_kwargs)
 
-    # Pre-process using SuperSuit (color reduction, resizing and frame stacking)
-    env = ss.color_reduction_v0(env, mode="B")
-    env = ss.resize_v1(env, x_size=84, y_size=84)
-    env = ss.frame_stack_v1(env, 3)
+    # Pre-process using SuperSuit
+    visual_observation = not env.unwrapped.vector_state
+    if visual_observation:
+        # If the observation space is visual, reduce the color channels, resize from 512px to 84px, and apply frame stacking
+        env = ss.color_reduction_v0(env, mode="B")
+        env = ss.resize_v1(env, x_size=84, y_size=84)
+        env = ss.frame_stack_v1(env, 3)
 
     print(
         f"\nStarting evaluation on {str(env.metadata['name'])} (num_games={num_games}, render_mode={render_mode})"
@@ -84,69 +86,49 @@ def eval(env_fn, num_games: int = 100, render_mode: str | None = None, **env_kwa
 
     rewards = {agent: 0 for agent in env.possible_agents}
 
-    # Note: We train using the Parallel API but evaluate using the AEC API
-    # SB3 models are designed for single-agent settings, we get around this by using he same model for every agent
+    # Note: we evaluate here using an AEC environments, to allow for easy A/B testing against random policies
+    # For example, we can see here that using a random agent for archer_0 results in less points than the trained agent
     for i in range(num_games):
         env.reset(seed=i)
+        env.action_space(env.possible_agents[0]).seed(i)
 
         for agent in env.agent_iter():
             obs, reward, termination, truncation, info = env.last()
 
+            for a in env.agents:
+                rewards[a] += env.rewards[a]
+
             if termination or truncation:
-                for a in env.agents:
-                    rewards[a] += env.rewards[a]
                 break
             else:
-                act = model.predict(obs, deterministic=True)[0]
-
+                if agent == env.possible_agents[0]:
+                    act = env.action_space(agent).sample()
+                else:
+                    act = model.predict(obs, deterministic=True)[0]
             env.step(act)
-
-    # TODO: fix SuperSuit bug where closing the vector env can sometimes crash (disabled for CI)
     env.close()
 
     avg_reward = sum(rewards.values()) / len(rewards.values())
+    avg_reward_per_agent = {
+        agent: rewards[agent] / num_games for agent in env.possible_agents
+    }
     print(f"Avg reward: {avg_reward}")
+    print("Avg reward per agent, per game: ", avg_reward_per_agent)
+    print("Full rewards: ", rewards)
     return avg_reward
 
 
 if __name__ == "__main__":
     env_fn = knights_archers_zombies_v10
 
-    env_kwargs = dict(
-        spawn_rate=20,
-        num_archers=2,
-        num_knights=2,
-        max_zombies=10,
-        max_arrows=10,
-        killable_knights=True,
-        killable_archers=True,
-        pad_observation=True,
-        line_death=False,
-        max_cycles=90,
-        vector_state=True,
-        use_typemasks=False,
-        sequence_space=False)
+    # Set vector_state to false in order to use visual observations (significantly longer training time)
+    env_kwargs = dict(max_cycles=100, max_zombies=4, vector_state=True)
 
-    # Train a model (takes ~3 minutes on a laptop CPU)
-    # Note: stochastic environment makes training difficult, for better results try order of 2 million (~2 hours on GPU)
-    train_butterfly_supersuit(env_fn, steps=2, seed=0, **env_kwargs)
+    # Train a model (takes ~5 minutes on a laptop CPU)
+    train(env_fn, steps=81_920, seed=0, **env_kwargs)
 
     # Evaluate 10 games (takes ~10 seconds on a laptop CPU)
     eval(env_fn, num_games=10, render_mode=None, **env_kwargs)
 
     # Watch 2 games (takes ~10 seconds on a laptop CPU)
     eval(env_fn, num_games=2, render_mode="human", **env_kwargs)
-
-'''
-Actions: Discrete
-Parallel API: Yes
-Manual Control: Yes
-agents= ['archer_0', 'archer_1', 'knight_0', 'knight_1']
-Agents :4
-Action Shape: (1,)
-Action Values: [0, 5]
-Observation Shape: (512, 512, 3)
-Observation Values: (0, 255)
-State Shape: (720, 1280, 3)
-State Values: (0, 255)
-'''
