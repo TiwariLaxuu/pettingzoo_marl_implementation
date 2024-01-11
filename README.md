@@ -2,6 +2,15 @@
 
 PettingZoo is a library of diverse sets of multi-agent environments with a universal, elegant Python API. PettingZoo was developed with the goal of accelerating research in Multi-Agent Reinforcement Learning (``"MARL"), by making work more interchangeable, accessible and reproducible akin to what OpenAI's Gym library did for single-agent reinforcement learning. PettingZoo's API, while inheriting many features of Gym, is unique amongst MARL APIs in that it's based around the novel games model.
 
+PettingZoo includes the following families of environments:
+
+Atari: Multi-player Atari 2600 games (cooperative, competitive and mixed sum)
+Butterfly: Cooperative graphical games developed by us, requiring a high degree of coordination
+Classic: Classical games including card games, board games, etc.
+MPE: A set of simple nongraphical communication tasks, originally from https://github.com/openai/multiagent-particle-envs
+SISL: 3 cooperative environments, originally from https://github.com/sisl/MADRL
+
+
 The first problem we have to deal with is that the environment’s observations are full color images. We don’t need the color information and it’s 3x more computationally expensive for the neural networks to process than grayscale images due to the 3 color channels. 
 
 env = ss.color_reduction_v0(env, mode=’B’)
