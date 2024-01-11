@@ -5,7 +5,7 @@ PettingZoo is a library of diverse sets of multi-agent environments with a unive
 PettingZoo includes the following families of environments:
 
 * Atari: Multi-player Atari 2600 games (cooperative, competitive and mixed sum)
-* Butterfly: Cooperative graphical games developed by us, requiring a high degree of coordination
+* Butterfly: Cooperative graphical games, requiring a high degree of coordination
 * Classic: Classical games including card games, board games, etc.
 * MPE: A set of simple nongraphical communication tasks, originally from https://github.com/openai/multiagent-particle-envs
 * SISL: 3 cooperative environments, originally from https://github.com/sisl/MADRL
